@@ -38,4 +38,4 @@ The helper uses the backend's isolated E2E compose stack and cleans up only that
 
 ## Git migration
 
-main preserves the original apps/web commit history. Latest local changes and new assets are included in the split snapshot. No remote is configured and nothing has been pushed. See MIGRATION.md.
+main preserves the original apps/web commit history. Latest local changes and new assets are included in the split snapshot. GitHub origin is the private repository https://github.com/ROONG-AROON-BROADCASTING-CO-LTD/EV-Station-Frontend. See MIGRATION.md.

@@ -6,11 +6,12 @@ Backend: D:/code/EV-Station-Backend
 
 These are separate Git roots with independent main branches. Historical commits were extracted with git subtree split, then current tracked/untracked application source and public assets were overlaid. Dependencies, generated output, runtime files and secrets were excluded from Git. Root data documentation and import utilities are maintained in backend; frontend owns browser tests and the HTTP integration guide.
 
-Local ignored runtime configuration was separated: browser configuration only in frontend; server configuration in backend. No remotes, GitHub repository creation or push was performed. Keep the monorepo as rollback until deployment and automation are deliberately migrated. Existing Windows startup scripts continue to use the monorepo.
+Local ignored runtime configuration was separated: browser configuration only in frontend; server configuration in backend. The two private GitHub repositories were created on 13 October 2026 and each local repository now has its own origin. Keep the monorepo as rollback until deployment and automation are deliberately migrated. Existing Windows startup scripts continue to use the monorepo.
 
 For eventual deployment, build both repositories first. Backend compose retains project ev-station and its named volumes. Replace the old web container deliberately only after the frontend image and upstream have been verified. Do not run compose down --volumes or remove orphan services; those operations could remove production data or the current web service. Confirm the Cloudflare tunnel still points to port 8081 after any switchover.
 
-The split itself does not synchronize later edits. Make future frontend changes in its repository and backend changes in its repository. GitHub remotes can be added later when authorized.
+The split itself does not synchronize later edits. Make future frontend changes in its repository and backend changes in its repository. Frontend origin: https://github.com/ROONG-AROON-BROADCASTING-CO-LTD/EV-Station-Frontend
+Backend origin: https://github.com/ROONG-AROON-BROADCASTING-CO-LTD/EV-Station-Backend
 
 ## Verified split snapshot
 
