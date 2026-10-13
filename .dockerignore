@@ -1,3 +1,11 @@
+.git
+.env
+.env.*
 node_modules
 dist
+coverage
+output
+*.log
 *.tsbuildinfo
+playwright-report
+test-results

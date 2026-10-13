@@ -1,5 +1,5 @@
 {
-  "name": "@rbc/web",
+  "name": "@rbc/ev-station-frontend",
   "private": true,
   "version": "0.1.0",
   "type": "module",
@@ -8,7 +8,8 @@
     "build": "tsc -b && vite build",
     "test": "vitest run",
     "lint": "eslint .",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "test:e2e:stack": "powershell -ExecutionPolicy Bypass -File scripts/test-e2e.ps1"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.1",
@@ -43,5 +44,6 @@
     "typescript-eslint": "^8.41.0",
     "vite": "^7.1.3",
     "vitest": "^3.2.4"
-  }
+  },
+  "packageManager": "pnpm@10.15.0"
 }
