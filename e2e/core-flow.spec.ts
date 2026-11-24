@@ -9,28 +9,12 @@ const sales = { email: `sales-${nonce}@e2e.local`, name: 'E2E Sales' }
 const admin = { email: `admin-${nonce}@e2e.local`, name: 'E2E Admin' }
 const customer = { email: `customer-${nonce}@e2e.local`, name: 'E2E Customer' }
 
-async function otpFor(request: APIRequestContext, email: string) {
-  await expect.poll(async () => {
-    const response = await request.get('http://127.0.0.1:18025/api/v2/messages')
-    const body = await response.json()
-    return body.items?.find((message: { To?: Array<{ Mailbox?: string; Domain?: string }> }) => message.To?.some(recipient => `${recipient.Mailbox}@${recipient.Domain}`.toLowerCase() === email))
-  }).not.toBeUndefined()
-  const response = await request.get('http://127.0.0.1:18025/api/v2/messages')
-  const body = await response.json()
-  const message = body.items.find((candidate: { To?: Array<{ Mailbox?: string; Domain?: string }> }) => candidate.To?.some(recipient => `${recipient.Mailbox}@${recipient.Domain}`.toLowerCase() === email))
-  const match = String(message?.Content?.Body || '').match(/\b(\d{6})\b/)
-  expect(match, 'registration email must contain a six-digit OTP').toBeTruthy()
-  return match![1]
-}
-
-async function signUp(page: Page, request: APIRequestContext, account: { email: string; name: string }) {
+async function signUp(page: Page, _request: APIRequestContext, account: { email: string; name: string }) {
   await page.goto('/login?mode=register')
   await page.getByRole('tab', { name: 'สมัครสมาชิก' }).click()
   await page.getByLabel('ชื่อที่แสดง').fill(account.name)
   await page.getByLabel('อีเมล').fill(account.email)
   await page.getByLabel('รหัสผ่าน').fill(password)
-  await page.getByRole('button', { name: 'ส่งรหัสยืนยัน' }).click()
-  await page.getByLabel('รหัสยืนยัน 6 หลัก').fill(await otpFor(request, account.email))
   await page.getByRole('button', { name: 'สร้างบัญชีและเข้าสู่ระบบ' }).click()
   await expect(page.getByRole('button', { name: 'ออกจากระบบ' })).toBeVisible()
 }

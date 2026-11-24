@@ -18,8 +18,6 @@ export function LoginPage({ onAuthenticated, onClose }: LoginPageProps) {
   const [email, setEmail] = useState('')
   const [name, setName] = useState('')
   const [password, setPassword] = useState('')
-  const [otp, setOTP] = useState('')
-  const [otpSent, setOTPSent] = useState(false)
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
   const close = useCallback(() => { if (onClose) onClose(); else navigate('/') }, [navigate, onClose])
@@ -40,12 +38,7 @@ export function LoginPage({ onAuthenticated, onClose }: LoginPageProps) {
     setBusy(true)
     setError('')
     try {
-      if (mode === 'register' && !otpSent) {
-        await api.requestRegistrationOTP(email)
-        setOTPSent(true)
-        return
-      }
-      if (mode === 'register') await api.register(email, name, password, otp)
+      if (mode === 'register') await api.register(email, name, password)
       const session = await api.login(email, password)
       onAuthenticated(session)
     } catch {
@@ -57,8 +50,6 @@ export function LoginPage({ onAuthenticated, onClose }: LoginPageProps) {
 
   const switchMode = (nextMode: 'login' | 'register') => {
     setMode(nextMode)
-    setOTPSent(false)
-    setOTP('')
     setError('')
   }
 
@@ -78,9 +69,8 @@ export function LoginPage({ onAuthenticated, onClose }: LoginPageProps) {
           {mode === 'register' ? <label>{t('Display name')}<input required autoComplete="name" value={name} onChange={event => setName(event.target.value)} autoFocus /></label> : null}
           <label>{t('Email')}<input required type="email" autoComplete="email" value={email} onChange={event => setEmail(event.target.value)} autoFocus={mode === 'login'} /></label>
           <label>{t('Password')}<input required minLength={8} type="password" autoComplete={mode === 'login' ? 'current-password' : 'new-password'} value={password} onChange={event => setPassword(event.target.value)} /></label>
-          {mode === 'register' && otpSent ? <label>{t('Verification code')}<input required inputMode="numeric" maxLength={6} value={otp} onChange={event => setOTP(event.target.value)} autoFocus /></label> : null}
           {error ? <p role="alert" className="auth-modal-error">{error}</p> : null}
-          <button disabled={busy} className="auth-modal-submit" type="submit">{mode === 'login' ? <LogIn size={19}/> : <UserPlus size={19}/>} {busy ? t('Continue') : mode === 'login' ? t('Sign in') : otpSent ? t('Create account and sign in') : t('Send verification code')}</button>
+          <button disabled={busy} className="auth-modal-submit" type="submit">{mode === 'login' ? <LogIn size={19}/> : <UserPlus size={19}/>} {busy ? t('Continue') : mode === 'login' ? t('Sign in') : t('Create account and sign in')}</button>
         </form>
         <p className="auth-modal-note">{t('Customer accounts can access only the areas submitted by their own account.')}</p>
         <button type="button" className="auth-modal-return" onClick={close}><ArrowLeft size={17}/>{language === 'th' ? 'กลับหน้าแรก' : 'Back to home'}</button>
