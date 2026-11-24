@@ -80,6 +80,7 @@ export function NewSitePage({ role, liff }: { role: UserRole; liff?: LiffSubmiss
   const photoInputRef = useRef<HTMLInputElement>(null)
   const documentInputRef = useRef<HTMLInputElement>(null)
   const liffRequestID = useRef(crypto.randomUUID())
+  const savedSiteID = useRef<string | undefined>(id)
   const siteQuery = useQuery({ queryKey: ['site', id], queryFn: () => api.getSite(id!), enabled: isEditing })
 	const existingAttachments = useQuery({ queryKey: ['site-images', id], queryFn: () => api.listSiteImages(id!), enabled: isEditing })
 	const { register, handleSubmit, watch, getValues, setValue, reset, formState: { errors } } = useForm<FormValues>({ resolver: zodResolver(schema), defaultValues: { landSizeUnit: 'sqm', address: '', googleMapsUrl: '', notes: '', electricalSupplyType: 'unknown' } })
@@ -103,7 +104,8 @@ export function NewSitePage({ role, liff }: { role: UserRole; liff?: LiffSubmiss
 		const confirmation = await api.completeLiffSite(saved.site.id, liff.idToken)
 		return { ...saved, ...confirmation }
     }
-    const saved = isEditing ? await api.updateSite(id!, input) : await api.createSite(input)
+    const saved = savedSiteID.current ? await api.updateSite(savedSiteID.current, input) : await api.createSite(input)
+    savedSiteID.current = saved.id
     if (attachments.length) await api.uploadSiteImages(saved.id, photos, documents)
     return { site: saved, notificationAccepted: true }
   }, onSuccess: async result => {
@@ -138,7 +140,7 @@ export function NewSitePage({ role, liff }: { role: UserRole; liff?: LiffSubmiss
       </div></section>
       <section className="flex min-h-[320px] flex-col rounded-xl border border-line bg-white p-4 shadow-panel sm:min-h-[420px] xl:min-h-[540px]"><div className="px-2 pb-4"><h2 className="section-title">{t('Site location preview')}</h2><p className="mt-1 text-sm text-muted">{t('Approximate location from user-supplied coordinates.')}</p></div><MapPanel className="flex-1" latitude={numberOrUndefined(latitude)} longitude={numberOrUndefined(longitude)}/></section>
       <div className="flex items-center justify-end gap-3 xl:sticky xl:bottom-4 xl:z-20 xl:col-span-2 xl:rounded-xl xl:border xl:border-line xl:bg-white xl:px-6 xl:py-4 xl:shadow-panel">{!liff && <button type="button" className="button-secondary" onClick={() => navigate(isEditing ? `/sites/${id}` : '/')}>{t('Cancel')}</button>}<button type="submit" className="button-primary" disabled={mutation.isPending || Boolean(fileError)}>{mutation.isPending ? t('Saving…') : t(isEditing ? 'Save changes' : 'Save Site')}</button></div>
-      {mutation.isError && <p className="text-right text-sm text-red-600 xl:col-span-2">{t(errorMessageKey(mutation.error))}</p>}
+      {mutation.isError && <p className="text-right text-sm text-red-600 xl:col-span-2">{t(errorMessageKey(mutation.error))}{!liff && savedSiteID.current && <span className="mt-2 block">{language === 'th' ? 'ข้อมูลพื้นที่บันทึกแล้ว กดบันทึกอีกครั้งเพื่อลองแนบไฟล์ต่อในพื้นที่เดิม หรือ ' : 'Site details are saved. Save again to retry files on the same site, or '}<a className="underline" href={`/sites/${savedSiteID.current}`}>{language === 'th' ? 'เปิดพื้นที่ที่บันทึกไว้' : 'open the saved site'}</a></span>}</p>}
     </form>
   </div>
 }

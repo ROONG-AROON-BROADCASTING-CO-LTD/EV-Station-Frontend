@@ -18,7 +18,7 @@ function clearExpiredSession() {
 }
 
 function throwAPIError<T>(response: Response, body: Envelope<T> & ErrorEnvelope): never {
-  const code = body.error?.code || 'REQUEST_FAILED'
+  const code = body.error?.code || (response.status === 413 ? 'SITE_EVIDENCE_LIMIT' : 'REQUEST_FAILED')
   if (response.status === 401 && (code === 'INVALID_TOKEN' || code === 'AUTH_REQUIRED')) clearExpiredSession()
   throw new APIError(code, body.error?.message || 'Request failed.', response.status)
 }
@@ -54,15 +54,54 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return authenticatedRequest<T>(path, getSessionToken(), init)
 }
 
-async function upload<T>(path: string, form: FormData): Promise<T> {
-  return authenticatedRequest<T>(path, getSessionToken(), { method: 'POST', body: form }, { json: false })
+const chunkBytes = 1024 * 1024
+const uploadIDs = new WeakMap<File, Map<string, string>>()
+
+async function uploadSiteFiles(siteID: string, files: File[]): Promise<{ count: number }> {
+  for (const file of files) {
+    if (!file.size || file.size > 10 * chunkBytes) throw new APIError('SITE_EVIDENCE_LIMIT', 'Each file must be between 1 byte and 10 MB.', 400)
+    let ids = uploadIDs.get(file)
+    if (!ids) { ids = new Map(); uploadIDs.set(file, ids) }
+    let id = ids.get(siteID)
+    if (!id) { id = crypto.randomUUID(); ids.set(siteID, id) }
+    // Replaying the first chunk returns the persisted offset, or complete=true
+    // when the previous response was lost after the file was saved.
+    let offset = 0
+    while (offset < file.size) {
+      const result = await authenticatedRequest<{ received: number; complete: boolean }>(
+        `/sites/${siteID}/image-uploads/${id}?offset=${offset}&total=${file.size}`,
+        getSessionToken(),
+        { method: 'PUT', body: file.slice(offset, offset + chunkBytes), headers: { 'Content-Type': 'application/octet-stream' } },
+        { json: false },
+      )
+      if (!Number.isInteger(result.received) || result.received <= offset || result.received > file.size || (result.complete && result.received !== file.size)) throw new APIError('SITE_IMAGE_UPLOAD_FAILED', 'Invalid upload response.', 502)
+      if (result.complete) break
+      if (result.received === file.size) throw new APIError('SITE_IMAGE_UPLOAD_FAILED', 'File was not finalized.', 502)
+      offset = result.received
+    }
+  }
+  return { count: files.length }
 }
 
 async function download(path: string): Promise<Blob> {
   const token = getSessionToken()
-  const response = await fetch(`${baseURL}${path}`, { headers: token ? { Authorization: `Bearer ${token}` } : undefined })
-  if (!response.ok) throw new APIError('SITE_IMAGE_LOAD_FAILED', 'Unable to load site evidence file.', response.status)
-  return response.blob()
+  const chunks: ArrayBuffer[] = []
+  let offset = 0
+  let total: number | undefined
+  let type = ''
+  do {
+    const response = await fetch(`${baseURL}${path}`, { headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}), Range: `bytes=${offset}-${offset + chunkBytes - 1}` } })
+    if (!response.ok) throw new APIError('SITE_IMAGE_LOAD_FAILED', 'Unable to load site evidence file.', response.status)
+    if (response.status === 200 && offset === 0) return response.blob()
+    const range = /^bytes (\d+)-(\d+)\/(\d+)$/.exec(response.headers.get('Content-Range') || '')
+    const buffer = await response.arrayBuffer()
+    if (!range || Number(range[1]) !== offset || Number(range[2]) + 1 !== offset + buffer.byteLength || !buffer.byteLength || Number(range[3]) > 10 * chunkBytes || (total !== undefined && total !== Number(range[3]))) throw new APIError('SITE_IMAGE_LOAD_FAILED', 'Invalid download range.', 502)
+    total = Number(range[3])
+    type = response.headers.get('Content-Type') || type
+    chunks.push(buffer)
+    offset += buffer.byteLength
+  } while (offset < total!)
+  return new Blob(chunks, { type })
 }
 
 async function liffRequest<T>(path: string, idToken: string, init?: RequestInit): Promise<T> {
@@ -97,7 +136,7 @@ export const api = {
 	resolveLiffGoogleMapsUrl: (url: string, idToken: string) => liffRequest<GoogleMapsResolution>('/liff/maps/resolve', idToken, { method: 'POST', body: JSON.stringify({ url }) }),
 	uploadLiffSiteImages: (id: string, photos: File[], documents: File[], idToken: string) => liffUpload<{ count: number }>(`/liff/sites/${id}/images`, idToken, createImageUploadForm(photos, documents)),
 	updateSite: (id: string, input: CreateSiteInput) => request<Site>(`/sites/${id}`, { method: 'PUT', body: JSON.stringify(input) }),
-	uploadSiteImages: (id: string, photos: File[], documents: File[]) => upload<{ count: number }>(`/sites/${id}/images`, createImageUploadForm(photos, documents)),
+	uploadSiteImages: (id: string, photos: File[], documents: File[]) => uploadSiteFiles(id, [...photos, ...documents]),
 	deleteSite: (id: string) => request<void>(`/sites/${id}`, { method: 'DELETE' }),
 	listSiteAccess: (id: string) => request<SiteAccess[]>(`/sites/${id}/access`),
 	setSiteAccess: (id: string, userId: string, role: UserRole) => request<void>(`/sites/${id}/access`, { method: 'PUT', body: JSON.stringify({ userId, role }) }),
